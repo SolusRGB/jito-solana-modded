@@ -95,7 +95,7 @@ fn last_vote_able_to_land(
     my_latest_landed_vote_slot >= last_voted_slot
     // 2. Already voting at the tip
             || last_voted_slot >= heaviest_bank_on_same_voted_fork.slot()
-    // 3. Last vote is within slot hashes, regular refresh is enough
+    // 3. Last vote is withink slot hashes, regular refresh is enough
             || heaviest_bank_on_same_voted_fork
         .is_in_slot_hashes_history(&last_voted_slot)
 }
@@ -123,7 +123,7 @@ fn recheck_fork_decision_failed_switch_threshold(
         return SwitchForkDecision::SameFork;
     }
 
-    // If we can't switch, then reset to the next votable bank on the same
+    // If we can't switch, then reset to the the next votable bank on the same
     // fork as our last vote, but don't vote.
 
     // We don't just reset to the heaviest fork when switch threshold fails because
@@ -322,6 +322,7 @@ fn can_vote_on_candidate_bank(
     tower: &Tower,
     failure_reasons: &mut Vec<HeaviestForkFailures>,
     switch_fork_decision: &SwitchForkDecision,
+    last_logged_vote_slot: &mut Slot,
 ) -> bool {
     let (
         is_locked_out,
@@ -390,11 +391,14 @@ fn can_vote_on_candidate_bank(
         && propagation_confirmed
         && switch_fork_decision.can_vote()
     {
-        info!(
-            "voting: {} {:.1}%",
-            candidate_vote_bank_slot,
-            100.0 * fork_weight
-        );
+        if candidate_vote_bank_slot != *last_logged_vote_slot {
+            info!(
+                "voting: {} {:.1}%",
+                candidate_vote_bank_slot,
+                100.0 * fork_weight
+            );
+            *last_logged_vote_slot = candidate_vote_bank_slot;
+        }
         true
     } else {
         false
@@ -409,7 +413,7 @@ fn can_vote_on_candidate_bank(
 /// longer being valid to vote on, it's possible that a validator will not
 /// be able to reset away from the invalid fork that they last voted on. To
 /// resolve this scenario, validators need to wait until they can create a
-/// switch proof for another fork or until the invalid fork is marked
+/// switch proof for another fork or until the invalid fork is be marked
 /// valid again if it was confirmed by the cluster.
 /// Until this is resolved, leaders will build each of their
 /// blocks from the last reset bank on the invalid fork.
@@ -423,6 +427,7 @@ pub fn select_vote_and_reset_forks(
     tower: &mut Tower,
     latest_validator_votes_for_frozen_banks: &LatestValidatorVotesForFrozenBanks,
     fork_choice: &HeaviestSubtreeForkChoice,
+    last_logged_vote_slot: &mut Slot,
 ) -> SelectVoteAndResetForkResult {
     // Try to vote on the actual heaviest fork. If the heaviest bank is
     // locked out or fails the threshold check, the validator will:
@@ -479,6 +484,7 @@ pub fn select_vote_and_reset_forks(
         tower,
         &mut failure_reasons,
         &switch_fork_decision,
+        last_logged_vote_slot,
     ) {
         // We can vote!
         SelectVoteAndResetForkResult {

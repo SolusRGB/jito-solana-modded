@@ -191,6 +191,7 @@ pub struct ForkStats {
     pub lockout_intervals: LockoutIntervals,
     pub bank_hash: Option<Hash>,
     pub my_latest_landed_vote: Option<Slot>,
+    pub is_mostly_confirmed: bool,
 }
 
 impl ForkStats {
@@ -373,6 +374,16 @@ impl ProgressMap {
         slot_progress.fork_stats.duplicate_confirmed_hash = Some(hash);
     }
 
+    // pub fn set_supermajority_confirmed_slot(&mut self, slot: Slot) {
+    //     let slot_progress = self.get_mut(&slot).unwrap();
+    //     slot_progress.fork_stats.is_supermajority_confirmed = true;
+    // }
+
+    pub fn set_mostly_confirmed_slot(&mut self, slot: Slot) {
+        let slot_progress: &mut ForkProgress = self.get_mut(&slot).unwrap();
+        slot_progress.fork_stats.is_mostly_confirmed = true;
+    }
+
     pub fn is_duplicate_confirmed(&self, slot: Slot) -> Option<bool> {
         self.progress_map
             .get(&slot)
@@ -425,7 +436,7 @@ mod test {
     #[test]
     fn test_add_vote_pubkey() {
         let mut stats = PropagatedStats::default();
-        let mut vote_pubkey = solana_pubkey::new_rand();
+        let mut vote_pubkey = solana_sdk::pubkey::new_rand();
 
         // Add a vote pubkey, the number of references in all_pubkeys
         // should be 2
@@ -439,7 +450,7 @@ mod test {
         assert_eq!(stats.propagated_validators_stake, 1);
 
         // Adding another pubkey should succeed
-        vote_pubkey = solana_pubkey::new_rand();
+        vote_pubkey = solana_sdk::pubkey::new_rand();
         stats.add_vote_pubkey(vote_pubkey, 2);
         assert!(stats.propagated_validators.contains(&vote_pubkey));
         assert_eq!(stats.propagated_validators_stake, 3);
@@ -449,7 +460,7 @@ mod test {
     fn test_add_node_pubkey_internal() {
         let num_vote_accounts = 10;
         let staked_vote_accounts = 5;
-        let vote_account_pubkeys: Vec<_> = std::iter::repeat_with(solana_pubkey::new_rand)
+        let vote_account_pubkeys: Vec<_> = std::iter::repeat_with(solana_sdk::pubkey::new_rand)
             .take(num_vote_accounts)
             .collect();
         let epoch_vote_accounts: HashMap<_, _> = vote_account_pubkeys
@@ -459,7 +470,7 @@ mod test {
             .collect();
 
         let mut stats = PropagatedStats::default();
-        let mut node_pubkey = solana_pubkey::new_rand();
+        let mut node_pubkey = solana_sdk::pubkey::new_rand();
 
         // Add a vote pubkey, the number of references in all_pubkeys
         // should be 2
@@ -480,7 +491,7 @@ mod test {
 
         // Adding another pubkey with same vote accounts should succeed, but stake
         // shouldn't increase
-        node_pubkey = solana_pubkey::new_rand();
+        node_pubkey = solana_sdk::pubkey::new_rand();
         stats.add_node_pubkey_internal(&node_pubkey, &vote_account_pubkeys, &epoch_vote_accounts);
         assert!(stats.propagated_node_ids.contains(&node_pubkey));
         assert_eq!(
@@ -490,8 +501,8 @@ mod test {
 
         // Adding another pubkey with different vote accounts should succeed
         // and increase stake
-        node_pubkey = solana_pubkey::new_rand();
-        let vote_account_pubkeys: Vec<_> = std::iter::repeat_with(solana_pubkey::new_rand)
+        node_pubkey = solana_sdk::pubkey::new_rand();
+        let vote_account_pubkeys: Vec<_> = std::iter::repeat_with(solana_sdk::pubkey::new_rand)
             .take(num_vote_accounts)
             .collect();
         let epoch_vote_accounts: HashMap<_, _> = vote_account_pubkeys
